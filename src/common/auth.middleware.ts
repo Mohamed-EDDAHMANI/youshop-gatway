@@ -1,17 +1,14 @@
 import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
+import { publicRoutes } from './public-routes';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
-    private publicRoutes = [
-        '/auth/login',
-        '/auth/register',
-    ];
 
     use(req: Request, res: Response, next: NextFunction) {
         // 1️⃣ Allow public routes without token
-        if (this.publicRoutes.includes(req.path)) return next();
+        if (publicRoutes.includes(req.path)) return next();
 
 
         const authHeader = req.headers['authorization'];

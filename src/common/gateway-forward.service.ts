@@ -1,6 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ClientProxyFactory, Transport } from '@nestjs/microservices';
-import { RedisService } from './redis.service';
+import { RedisService } from '../services/redis.service';
+
+
+  // const ser = {
+  //   "serviceKey:s1": {
+  //     "serviceName": "auth-service",
+  //     "instances": [
+  //       {
+  //         "id": "auth-service:12345",
+  //         "host": "auth-service",
+  //         "port": 3001
+  //       }
+  //     ],
+  //     "endpoints": {
+  //       "/auth/login": ["user", "admin"],
+  //       "/auth/register": ["user", "admin"],
+  //       "/auth/profile": ["user"],
+  //       "/auth/admin": ["admin"]
+  //     }
+  //   }
+  // }
 
 @Injectable()
 export class GatewayForwardService {
@@ -16,7 +36,7 @@ export class GatewayForwardService {
     }
 
     const serviceInfo = JSON.parse(serviceInfoRaw);
-    const { serviceName, instances } = serviceInfo;
+    const { serviceName, instances , endpoints } = serviceInfo;
 
     if (!instances || !instances.length) {
       throw new NotFoundException(`Service ${serviceName} unavailable`);
@@ -24,7 +44,7 @@ export class GatewayForwardService {
 
     // pick a random instance for load balancing
     const randomInstance = instances[Math.floor(Math.random() * instances.length)];
-    return { host: randomInstance.host, port: randomInstance.port, serviceName };
+    return { serviceName, randomInstance , endpoints};
   }
 
   createTcpClient(host: string, port: number) {
