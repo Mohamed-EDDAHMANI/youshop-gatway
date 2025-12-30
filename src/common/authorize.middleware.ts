@@ -11,7 +11,7 @@ export class AuthorizeMiddleware implements NestMiddleware {
     async use(req: Request, res: Response, next: NextFunction) {
 
         // Skip public routes
-        if (publicRoutes.includes(req.path)) {
+        if (publicRoutes.includes(req.originalUrl)) {
             return next();
         }
 

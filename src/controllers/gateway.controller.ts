@@ -1,15 +1,15 @@
-import { Controller, All, Param, Req, Res } from '@nestjs/common';
+import { Controller, All, Param, Req, Res, NotFoundException } from '@nestjs/common';
 import express from 'express';
 import { firstValueFrom } from 'rxjs';
 import { GatewayForwardService } from '../common/gateway-forward.service';
 
 @Controller()
 export class GatewayController {
-  constructor(private readonly forwardService: GatewayForwardService) {}
+  constructor(private readonly forwardService: GatewayForwardService) { }
 
   @All('health')
   async healthCheck(@Res() res: express.Response) {
-    res.status(200).json({ status: 'ok' });
+    res.status(200).json({ status: 'ok---' });
   }
 
   @All(':service/*')
@@ -24,6 +24,7 @@ export class GatewayController {
       const { randomInstance } = await this.forwardService.getServiceInstance(service);
 
       const client = this.forwardService.createTcpClient(randomInstance.host, randomInstance.port);
+      console.log(`Forwarding request to ${service} at ${randomInstance.host}:${randomInstance.port} with pattern: ${pattern} --------------`);
 
       const response: any = await firstValueFrom(
         client.send(pattern, {
@@ -33,6 +34,25 @@ export class GatewayController {
           method: req.method,
         }),
       );
+      console.log('Response from service:', response);
+
+      const refreshToken = response.refreshToken;
+
+      if (req.originalUrl.includes('auth/refresh')) {
+        if (!refreshToken) {
+          throw new NotFoundException('Server Error: Missing refresh token in response');
+        }
+
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+        });
+
+        delete response.refreshToken;
+      }
 
       const status = response?.status && typeof response.status === 'number' ? response.status : 200;
 

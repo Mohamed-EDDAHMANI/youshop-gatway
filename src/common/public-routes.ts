@@ -1,5 +1,5 @@
 export const publicRoutes = [
-  '/auth/login',
-  '/auth/register',
-  // '/auth/refresh',
+  '/s1/auth/login',
+  '/s1/auth/register',
+  // 's1/auth/refresh',
 ];

@@ -27,10 +27,11 @@ export class GatewayForwardService {
   constructor(private readonly redisService: RedisService) {}
 
   async getServiceInstance(serviceKey: string) {
-    const redis = this.redisService.getClient();
 
     // get all service info from Redis
     const serviceInfoRaw = await this.redisService.get(`serviceKey:${serviceKey}`);
+    // return JSON.parse(serviceInfoRaw);
+    // console.log('Service Info Raw:', serviceInfoRaw);
     if (!serviceInfoRaw) {
       throw new NotFoundException(`No service info mapped for key: ${serviceKey}`);
     }
