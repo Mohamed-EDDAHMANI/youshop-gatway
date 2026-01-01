@@ -2,14 +2,22 @@ import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/commo
 import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { publicRoutes } from './public-routes';
-import path from 'path';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
 
+    private readonly logger = new Logger(AuthMiddleware.name)
+
     use(req: Request, res: Response, next: NextFunction) {
         // 1️⃣ Allow public routes without token
-        if (publicRoutes.includes(req.originalUrl)) return next();
+        let originURL = req.originalUrl + '/' + req.method.toLowerCase();
+
+        const isPublic = publicRoutes.some(route => route.test(originURL));
+        if (isPublic) {
+            this.logger.debug(`Public route allowed: ${originURL}`);
+            return next();
+        }
         // res.send({ 
         //     status: 'working....',
         //     path: req.originalUrl,
