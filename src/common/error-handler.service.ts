@@ -28,14 +28,15 @@ export class ErrorHandlerService {
   private extractErrorDetails(error: any): ErrorDetails {
     this.logger.debug(`Gateway received error: ${JSON.stringify(error)}`);
 
-    if (error?.success === false) {
-      const serviceError = error;
-    //   this.logger.debug(`Extracted service error: ${JSON.stringify(serviceError)}`);
+    if (error?.success === false && error?.error) {
+      const serviceError = error.error;
+      this.logger.debug(`Service error extracted: ${JSON.stringify(serviceError)}`);
       return {
-        code: serviceError.error.type || 'INTERNAL_SERVER_ERROR',
-        message: serviceError.error.message || 'Internal server error',
-        statusCode: serviceError.error.code || HttpStatus.INTERNAL_SERVER_ERROR,
-        serviceName: serviceError.error.serviceName,
+        code: serviceError.code || 'INTERNAL_SERVER_ERROR',
+        message: serviceError.message || 'Internal server error',
+        statusCode: serviceError.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
+        details: serviceError.details,
+        serviceName: serviceError.serviceName,
       };
     }
 
@@ -61,6 +62,7 @@ export class ErrorHandlerService {
   }
 
   private sendErrorResponse(errorDetails: ErrorDetails, res: express.Response): void {
+
     res.status(errorDetails.statusCode).json({
       success: false,
       error: {

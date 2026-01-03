@@ -107,13 +107,14 @@ export class GatewayForwardService {
 
       const response = await firstValueFrom(client.send(pattern, payload));
 
+      // this.logger.log('=============='+ JSON.stringify(response));
+
       // If microservice responded with an error payload (success === false or explicit status), bubble it up
       const statusFromResponse = response?.status ?? response?.statusCode;
       if (response?.success === false || (typeof statusFromResponse === 'number' && statusFromResponse >= 400)) {
         throw response;
       }
 
-      // this.logger.debug(`Response: ${JSON.stringify(response, null, 2)}`);
       return response;
     } catch (error) {
       // Extract RPC error - getError() method returns the serialized error

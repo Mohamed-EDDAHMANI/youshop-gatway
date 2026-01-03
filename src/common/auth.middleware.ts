@@ -24,8 +24,9 @@ export class AuthMiddleware implements NestMiddleware {
             this.logger.debug(`Public route allowed: ${originURL}`);
             return next();
         }
-
+        
         const authHeader = req.headers['authorization'];
+        this.logger.debug(`Authorization header: ${authHeader}`);
         if (!authHeader) {
             this.logger.error('Missing authorization header');
             throw new UnauthorizedException('Missing token');
