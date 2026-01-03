@@ -8,7 +8,7 @@ import { Logger } from '@nestjs/common';
 @Injectable()
 export class AuthorizeMiddleware implements NestMiddleware {
 
-    private readonly logger = new Logger(GatewayForwardService.name)
+    private readonly logger = new Logger(AuthorizeMiddleware.name)
 
     constructor(private readonly forwardService: GatewayForwardService,
     ) { }
@@ -30,35 +30,31 @@ export class AuthorizeMiddleware implements NestMiddleware {
         if (!user || !user.role) {
             throw new ForbiddenException('No user role found');
         }
-        this.logger.debug(`path:: ${req.path}`);
-        const [, serviceKey, ...rest] = req.path.split('/');
+        const [, serviceKey, ...rest] = req.originalUrl.split('/');
         const endpointPath = '/' + rest.join('/') + '/' + req.method.toLowerCase();
 
         try {
             // Fetch service info from Redis
-            // const endpoints = await this.forwardService.getServiceInstance(serviceKey);
             const serviceInfo = await this.forwardService.getServiceInstance(serviceKey);
-
             // Find required roles for the endpoint
             const matchedEndpoint = serviceInfo.endpoints.find(e =>
                 e.pattern.test(endpointPath),
             );
-
-            const requiredRoles = matchedEndpoint?.roles;
-            // this.logger.debug(`Selected instance for ${serviceName}: ${randomInstance.host}:${randomInstance.port}`);
-
-            // const requiredRoles: string[] | undefined = endpoints?.[endpointPath];
+            
+            // Extract the roles array - handle both object and array structures
+            const rolesData = (matchedEndpoint?.roles as any);
+            const requiredRoles = rolesData?.roles || (Array.isArray(rolesData) ? rolesData : undefined);
 
             // If roles are specified and user role is not allowed, throw
-            this.logger.debug(`Required Roles: ${requiredRoles}`);
             this.logger.debug(`User Role: ${user.role}`);
-            if (requiredRoles && !requiredRoles.includes(user.role)) {
+            if (requiredRoles && Array.isArray(requiredRoles) && !requiredRoles.includes(user.role.toLowerCase())) {
                 throw new ForbiddenException('You do not have permission to access this resource');
             }
 
-            // If no roles specified, allow by default (or you can deny by default)
+            // If no roles specified, allow by default
             next();
         } catch (err) {
+            this.logger.error(`Authorization failed: ${err.message}`);
             throw new ForbiddenException('Authorization failed');
         }
 

@@ -28,7 +28,7 @@ export class GatewayForwardService {
     }>
   }> {
     const serviceInfoRaw = await this.redisService.get(`serviceKey:${serviceKey}`);
-    
+
 
     if (!serviceInfoRaw) {
       this.logger.warn(`Service not found: ${serviceKey}`);
@@ -37,8 +37,6 @@ export class GatewayForwardService {
 
     const serviceInfo: ServiceInfo = JSON.parse(serviceInfoRaw);
     const { serviceName, instances, endpoints: endpointsRaw } = serviceInfo;
-
-    this.logger.debug(`Service: ${serviceName}`);
 
     if (!instances || instances.length === 0) {
       this.logger.error(`No instances available for service: ${serviceName}`);
@@ -95,34 +93,39 @@ export class GatewayForwardService {
     payload: ForwardPayload,
   ): Promise<any> {
     try {
-      this.logger.log(
-        `Forwarding [${service}]`,
-      );
       const { serviceName, randomInstance } = await this.getServiceInstance(service);
-
+      
+      if(pattern.split('/').length >= 3){
+        pattern = pattern.split('/').slice(0, -1).join('/');
+      }
+      
       const client = this.createTcpClient(randomInstance.host, randomInstance.port);
 
       this.logger.log(
-        `Forwarding [${payload.method}] ${pattern} → ${serviceName}@${randomInstance.host}:${randomInstance.port}`,
+        `Forwarding [${service}][${payload.method}] ${pattern} → ${serviceName}@${randomInstance.host}:${randomInstance.port}`,
       );
-      // this.logger.debug(`Payload: ${JSON.stringify(payload, null, 2)}`);
 
-      this.logger.log(
-        `------client  [${pattern}, ${JSON.stringify(payload)}]`,
-      );
       const response = await firstValueFrom(client.send(pattern, payload));
+
+      // If microservice responded with an error payload (success === false or explicit status), bubble it up
+      const statusFromResponse = response?.status ?? response?.statusCode;
+      if (response?.success === false || (typeof statusFromResponse === 'number' && statusFromResponse >= 400)) {
+        throw response;
+      }
 
       // this.logger.debug(`Response: ${JSON.stringify(response, null, 2)}`);
       return response;
     } catch (error) {
-      this.logger.log(
-        `Failed===== ${JSON.stringify(error)}`,
-      );
+      // Extract RPC error - getError() method returns the serialized error
+      const rpcError = error?.getError?.() || error;
+      
+      this.logger.debug(`Extracted RPC Error: ${JSON.stringify(rpcError)}`);
       this.logger.error(
-        `Failed to forward request to.. ${service}: ${error.message}`,
-        error.stack,
+        `Failed to forward request to ${service}: ${error.message}`,
       );
-      throw error;
+      
+      // Throw the extracted error so controller's ErrorHandlerService can format it
+      throw rpcError;
     }
   }
 
@@ -130,6 +133,7 @@ export class GatewayForwardService {
    * Handle refresh token cookie
    */
   handleRefreshToken(response: any, res: express.Response): any {
+    this.logger.debug(`Handling =====================e: ${JSON.stringify(response)}`);
     if (!response?.refreshToken) {
       this.logger.warn('Refresh token missing in response');
       throw new BadRequestException('Missing refresh token in response');
@@ -155,9 +159,24 @@ export class GatewayForwardService {
    * Extract HTTP status from response
    */
   getResponseStatus(response: any): number {
-    if (response?.status && typeof response.status === 'number') {
+    // Check for explicit status code
+    if (typeof response?.status === 'number' && response.status >= 100 && response.status < 600) {
       return response.status;
     }
+    
+    if (typeof response?.statusCode === 'number' && response.statusCode >= 100 && response.statusCode < 600) {
+      return response.statusCode;
+    }
+
+    // Check for error response format with statusCode in error object
+    if (response?.success === false && response?.error?.statusCode) {
+      const statusCode = response.error.statusCode;
+      if (typeof statusCode === 'number' && statusCode >= 100 && statusCode < 600) {
+        return statusCode;
+      }
+    }
+
+    // Default to 200 OK for successful responses
     return 200;
   }
 

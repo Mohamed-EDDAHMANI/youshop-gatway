@@ -1,6 +1,7 @@
 import { Controller, All, Param, Req, Res, Logger, HttpStatus } from '@nestjs/common';
 import express from 'express';
 import { GatewayForwardService } from '../common/gateway-forward.service';
+import { ErrorHandlerService } from '../common/error-handler.service';
 
 
   // const ser = {
@@ -27,7 +28,10 @@ import { GatewayForwardService } from '../common/gateway-forward.service';
 export class GatewayController {
   private readonly logger = new Logger(GatewayController.name);
 
-  constructor(private readonly forwardService: GatewayForwardService) {}
+  constructor(
+    private readonly forwardService: GatewayForwardService,
+    private readonly errorHandler: ErrorHandlerService,
+  ) {}
 
   @All('health')
   healthCheck(@Res() res: express.Response): void {
@@ -48,38 +52,40 @@ export class GatewayController {
       const pattern = req.originalUrl.replace(`/${service}/`, '');
       
       // Build payload
+      const id = pattern.split('/').pop() || '';
+      req.params = { id };
       const payload = this.forwardService.buildPayload(req);
-      // this.logger.debug(`R====: ${JSON.stringify(payload)}`);
 
       // Forward request to microservice
       let response = await this.forwardService.forwardRequest(service, pattern, payload);
 
       // Handle refresh token for auth/refresh endpoint
-      if (req.originalUrl.includes('auth/refresh')) {
+      if (req.originalUrl.includes('s1/auth/refresh') || req.originalUrl.includes('s1/auth/login') || req.originalUrl.includes('s1/auth/register')) {
         response = this.forwardService.handleRefreshToken(response, res);
       }
 
-      // Get status code and send response
+      // Check if response indicates an error
+      if (response?.success === false) {
+        const status = response.error?.statusCode || response.statusCode || HttpStatus.BAD_REQUEST;
+        this.logger.warn(`Microservice returned error: ${response.error?.message || 'Unknown error'}`);
+        
+        res.status(status).json({
+          success: false,
+          error: response.error || {
+            code: 'UNKNOWN_ERROR',
+            message: response.message || 'Operation failed',
+            statusCode: status,
+          },
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // Get status code and send successful response
       const status = this.forwardService.getResponseStatus(response);
       res.status(status).json(response);
     } catch (error) {
-      this.handleError(error, res);
+      this.errorHandler.handleError(error, res);
     }
-  }
-
-  /**
-   * Centralized error handling
-   */
-  private handleError(error: any, res: express.Response): void {
-    const status = error?.status || HttpStatus.INTERNAL_SERVER_ERROR;
-    const message = error?.message || 'Internal server error';
-
-    this.logger.error(`Request failed: ${message}`, error?.stack);
-
-    res.status(status).json({
-      statusCode: status,
-      message,
-      timestamp: new Date().toISOString(),
-    });
   }
 }

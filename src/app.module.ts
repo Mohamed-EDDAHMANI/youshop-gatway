@@ -6,12 +6,32 @@ import { GatewayController } from './controllers/gateway.controller';
 import { AuthMiddleware } from './common/auth.middleware';
 import { AuthorizeMiddleware } from './common/authorize.middleware';
 import { GatewayForwardService } from './common/gateway-forward.service';
+import { ErrorHandlerService } from './common/error-handler.service';
 import { RedisService } from './services/redis.service';
 import { WinstonModule } from 'nest-winston';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { winstonConfig } from './common/logger/logger.config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const expiresIn = configService.get<string>('ACCESS_TOKEN_EXPIRES', '7d');
+        return {
+          secret: configService.get<string>('JWT_SECRET'),
+          signOptions: {
+            expiresIn: expiresIn as any,
+          },
+        };
+      },
+      inject: [ConfigService],
+      global: true, // Makes JwtService available globally
+    }),
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -26,6 +46,7 @@ import { winstonConfig } from './common/logger/logger.config';
   providers: [
     RedisService,
     GatewayForwardService,
+    ErrorHandlerService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard, // Global rate limit
