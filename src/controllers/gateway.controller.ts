@@ -2,6 +2,7 @@ import { Controller, All, Param, Req, Res, Logger, HttpStatus } from '@nestjs/co
 import express from 'express';
 import { GatewayForwardService } from '../common/gateway-forward.service';
 import { ErrorHandlerService } from '../common/error-handler.service';
+import { debug } from 'console';
 
 
   // const ser = {
@@ -66,9 +67,6 @@ export class GatewayController {
 
       // Check if response indicates an error
       if (response?.success === false) {
-        this.logger.error(
-          `|||||||||||||||||||||||||||||||||||||||||||||||||||||||||`,
-        );
         const status = response.error?.statusCode || response.statusCode || HttpStatus.BAD_REQUEST;
         this.logger.warn(`Microservice returned error: ${response.error?.message || 'Unknown error'}`);
         

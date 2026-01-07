@@ -16,4 +16,9 @@ export const publicRoutes: RegExp[] = [
   /^\/s3\/health\/get$/,
   /^\/s3\/inventory\/sku\/[^\/]+\/get$/, 
   /^\/s3\/inventory\/find-by-sku\/[^\/]+\/get$/,
+  
+  /^\/s4\/health\/get$/,
+  /^\/s4\/orders\/create-order$/,
+  /^\/s4\/orders\/find-one\/[^\/]+\/get$/,
+  /^\/s4\/orders\/remove\/[^\/]+\/get$/,
 ];

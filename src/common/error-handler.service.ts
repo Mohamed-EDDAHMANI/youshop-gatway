@@ -28,16 +28,27 @@ export class ErrorHandlerService {
   private extractErrorDetails(error: any): ErrorDetails {
     this.logger.debug(`Gateway received error: ${JSON.stringify(error)}`);
 
-    if (error?.success === false && error?.error) {
+    if (error?.success === false || error?.error?.success === false && error?.error) {
       const serviceError = error.error;
       this.logger.debug(`Service error extracted: ${JSON.stringify(serviceError)}`);
-      return {
-        code: serviceError.code || 'INTERNAL_SERVER_ERROR',
-        message: serviceError.message || 'Internal server error',
-        statusCode: serviceError.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
-        details: serviceError.details,
-        serviceName: serviceError.serviceName,
-      };
+      if(serviceError.code){
+        return {
+          code: serviceError.code || 'INTERNAL_SERVER_ERROR',
+          message: serviceError.message || 'Internal server error',
+          statusCode: serviceError.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
+          details: serviceError.details,
+          serviceName: serviceError.serviceName,
+        };
+      }else{
+        return {
+          code: serviceError.error.code || 'INTERNAL_SERVER_ERROR',
+          message: serviceError.error.message || 'Internal server error',
+          statusCode: serviceError.error.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
+          details: serviceError.error.details,
+          serviceName: serviceError.error.serviceName,
+        };
+
+      }
     }
 
     // Fallback for unexpected errors

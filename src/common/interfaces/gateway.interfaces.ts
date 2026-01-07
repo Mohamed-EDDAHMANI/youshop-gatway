@@ -29,6 +29,7 @@ export interface ForwardPayload {
   params: Record<string, any>;
   ip?: string;
   userAgent: string;
+  user?: any;
 }
 
 /**

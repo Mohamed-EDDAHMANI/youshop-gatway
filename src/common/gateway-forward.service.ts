@@ -29,7 +29,6 @@ export class GatewayForwardService {
   }> {
     const serviceInfoRaw = await this.redisService.get(`serviceKey:${serviceKey}`);
 
-
     if (!serviceInfoRaw) {
       this.logger.warn(`Service not found: ${serviceKey}`);
       throw new NotFoundException(`Service '${serviceKey}' not found in registry`);
@@ -81,6 +80,7 @@ export class GatewayForwardService {
       params: req.params,
       ip: req.ip || 'unknown',
       userAgent: req.get('user-agent') || 'unknown',
+      user: (req as any).user,
     };
   }
 
@@ -94,11 +94,11 @@ export class GatewayForwardService {
   ): Promise<any> {
     try {
       const { serviceName, randomInstance } = await this.getServiceInstance(service);
-      
-      if(pattern.split('/').length >= 3){
+
+      if (pattern.split('/').length >= 3) {
         pattern = pattern.split('/').slice(0, -1).join('/');
       }
-      
+
       const client = this.createTcpClient(randomInstance.host, randomInstance.port);
 
       this.logger.log(
@@ -106,9 +106,6 @@ export class GatewayForwardService {
       );
 
       const response = await firstValueFrom(client.send(pattern, payload));
-
-      // this.logger.log('=============='+ JSON.stringify(response));
-
       // If microservice responded with an error payload (success === false or explicit status), bubble it up
       const statusFromResponse = response?.status ?? response?.statusCode;
       if (response?.success === false || (typeof statusFromResponse === 'number' && statusFromResponse >= 400)) {
@@ -119,12 +116,11 @@ export class GatewayForwardService {
     } catch (error) {
       // Extract RPC error - getError() method returns the serialized error
       const rpcError = error?.getError?.() || error;
-      
-      this.logger.debug(`Extracted RPC Error: ${JSON.stringify(rpcError)}`);
+
       this.logger.error(
         `Failed to forward request to ${service}: ${error.message}`,
       );
-      
+
       // Throw the extracted error so controller's ErrorHandlerService can format it
       throw rpcError;
     }
@@ -134,7 +130,6 @@ export class GatewayForwardService {
    * Handle refresh token cookie
    */
   handleRefreshToken(response: any, res: express.Response): any {
-    this.logger.debug(`Handling =====================e: ${JSON.stringify(response)}`);
     if (!response?.refreshToken) {
       this.logger.warn('Refresh token missing in response');
       throw new BadRequestException('Missing refresh token in response');
@@ -164,7 +159,7 @@ export class GatewayForwardService {
     if (typeof response?.status === 'number' && response.status >= 100 && response.status < 600) {
       return response.status;
     }
-    
+
     if (typeof response?.statusCode === 'number' && response.statusCode >= 100 && response.statusCode < 600) {
       return response.statusCode;
     }
